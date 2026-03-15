@@ -73,7 +73,6 @@ def watch(path):
 @click.option("--copy", is_flag=True, help="Copy prompt to clipboard")
 def prompt(task, copy):
     """Generate a context-rich LLM prompt for a task."""
-    cfg = load_config()
     writer = DocWriter(".")
 
     output = build_prompt(writer, task)
