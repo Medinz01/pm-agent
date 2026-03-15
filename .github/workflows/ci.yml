@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pyflakes
+
+      - name: Lint with pyflakes
+        run: |
+          pyflakes main.py config.py indexer.py analyzer.py \
+            questioner.py doc_writer.py diff_engine.py \
+            watcher.py prompt_builder.py \
+            llm/base.py llm/factory.py llm/ollama_client.py \
+            llm/openai_client.py llm/anthropic_client.py
+
+      - name: Test config loader
+        run: |
+          python -c "from config import load_config; cfg = load_config(); print('config ok:', cfg['provider'])"
+
+      - name: Test indexer (on repo itself)
+        run: |
+          python -c "
+          from indexer import index_repo, map_repo
+          tree, contents = index_repo('.', ['*.pyc','__pycache__','.git','.pm'])
+          code_map = map_repo(contents)
+          print(f'Indexed {len(contents)} files, mapped {len(code_map)} code files')
+          assert len(contents) > 0, 'indexer returned no files'
+          assert 'main.py' in code_map, 'main.py missing from code map'
+          print('indexer ok')
+          "
+
+      - name: Test AST code map
+        run: |
+          python -c "
+          from indexer import map_repo
+          contents = {'main.py': open('main.py').read()}
+          code_map = map_repo(contents)
+          assert 'main.py' in code_map
+          assert any('cli' in e for e in code_map['main.py'])
+          print('AST map ok:', code_map['main.py'])
+          "
+
+      - name: Test doc writer (no LLM needed)
+        run: |
+          python -c "
+          import os, tempfile
+          from doc_writer import DocWriter
+          with tempfile.TemporaryDirectory() as tmp:
+              writer = DocWriter(tmp)
+              analysis = {
+                  'purpose': 'test project',
+                  'goals': ['goal 1'],
+                  'stack': ['Python'],
+                  'architecture': 'modular'
+              }
+              decisions = [{'question': 'Why Python?', 'answer': 'best libs'}]
+              writer.write_initial(analysis, decisions, code_map={})
+              doc = writer.read_doc()
+              assert '## Code Map' in doc
+              assert '## Design Decisions' in doc
+              assert '## Changelog' in doc
+              writer.append_decision('test decision')
+              writer.append_changelog(['test change'])
+              print('doc_writer ok')
+          "
+
+      - name: Test prompt builder
+        run: |
+          python -c "
+          import os, tempfile
+          from doc_writer import DocWriter
+          from prompt_builder import build_prompt
+          with tempfile.TemporaryDirectory() as tmp:
+              writer = DocWriter(tmp)
+              analysis = {'purpose': 'test', 'goals': [], 'stack': [], 'architecture': 'test'}
+              writer.write_initial(analysis, [], code_map={})
+              prompt = build_prompt(writer, 'add auth')
+              assert 'add auth' in prompt
+              assert 'Project Context' in prompt
+              print('prompt_builder ok')
+          "
