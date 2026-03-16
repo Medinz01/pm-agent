@@ -22,38 +22,46 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pyflakes
+          pip install -e .
+          pip install pyflakes
 
       - name: Lint with pyflakes
         run: |
-          pyflakes main.py config.py indexer.py analyzer.py \
-            questioner.py doc_writer.py diff_engine.py \
-            watcher.py prompt_builder.py \
-            llm/base.py llm/factory.py llm/ollama_client.py \
-            llm/openai_client.py llm/anthropic_client.py
+          pyflakes src/pm_agent/main.py src/pm_agent/config.py src/pm_agent/indexer.py \
+            src/pm_agent/analyzer.py src/pm_agent/questioner.py src/pm_agent/doc_writer.py \
+            src/pm_agent/diff_engine.py src/pm_agent/watcher.py src/pm_agent/prompt_builder.py \
+            src/pm_agent/wizard.py src/pm_agent/git_reader.py src/pm_agent/summarizer.py \
+            src/pm_agent/gitignore_manager.py \
+            src/pm_agent/llm/base.py src/pm_agent/llm/factory.py \
+            src/pm_agent/llm/ollama_client.py src/pm_agent/llm/openai_client.py \
+            src/pm_agent/llm/anthropic_client.py
 
       - name: Test config loader
         run: |
-          python -c "from config import load_config; cfg = load_config(); print('config ok:', cfg['provider'])"
+          python -c "
+          from pm_agent.config import load_config
+          cfg = load_config()
+          print('config ok:', cfg['provider'])
+          assert cfg['provider'] == 'local'
+          "
 
       - name: Test indexer (on repo itself)
         run: |
           python -c "
-          from indexer import index_repo, map_repo
-          tree, contents = index_repo('.', ['*.pyc','__pycache__','.git','.pm'])
+          from pm_agent.indexer import index_repo, map_repo
+          tree, contents = index_repo('.', ['*.pyc','__pycache__','.git','.pm','node_modules'])
           code_map = map_repo(contents)
           print(f'Indexed {len(contents)} files, mapped {len(code_map)} code files')
           assert len(contents) > 0, 'indexer returned no files'
-          assert 'main.py' in code_map, 'main.py missing from code map'
+          assert any('main.py' in k for k in code_map.keys()), 'main.py missing from code map'
           print('indexer ok')
           "
 
       - name: Test AST code map
         run: |
           python -c "
-          from indexer import map_repo
-          contents = {'main.py': open('main.py').read()}
+          from pm_agent.indexer import map_repo
+          contents = {'main.py': open('src/pm_agent/main.py').read()}
           code_map = map_repo(contents)
           assert 'main.py' in code_map
           assert any('cli' in e for e in code_map['main.py'])
@@ -64,7 +72,7 @@ jobs:
         run: |
           python -c "
           import os, tempfile
-          from doc_writer import DocWriter
+          from pm_agent.doc_writer import DocWriter
           with tempfile.TemporaryDirectory() as tmp:
               writer = DocWriter(tmp)
               analysis = {
@@ -88,8 +96,8 @@ jobs:
         run: |
           python -c "
           import os, tempfile
-          from doc_writer import DocWriter
-          from prompt_builder import build_prompt
+          from pm_agent.doc_writer import DocWriter
+          from pm_agent.prompt_builder import build_prompt
           with tempfile.TemporaryDirectory() as tmp:
               writer = DocWriter(tmp)
               analysis = {'purpose': 'test', 'goals': [], 'stack': [], 'architecture': 'test'}
@@ -98,4 +106,22 @@ jobs:
               assert 'add auth' in prompt
               assert 'Project Context' in prompt
               print('prompt_builder ok')
+          "
+
+      - name: Test gitignore manager
+        run: |
+          python -c "
+          import os, tempfile
+          from pm_agent.gitignore_manager import setup_core, verify
+          with tempfile.TemporaryDirectory() as tmp:
+              setup_core(tmp, quiet=True)
+              result = verify(tmp)
+              assert result['.pm/snapshot.json'], 'snapshot.json not in gitignore'
+              assert result['.pm/prompts/'], 'prompts/ not in gitignore'
+              # run again — should not duplicate
+              setup_core(tmp, quiet=True)
+              with open(os.path.join(tmp, '.gitignore')) as f:
+                  content = f.read()
+              assert content.count('.pm/snapshot.json') == 1, 'duplicate entries found'
+              print('gitignore_manager ok')
           "
