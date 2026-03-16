@@ -3,7 +3,7 @@ pm-agent first-run setup wizard.
 Guides user through local or cloud provider configuration.
 """
 
-import os
+
 import sys
 import subprocess
 import platform
@@ -14,7 +14,7 @@ from rich.console import Console
 from rich.prompt import Prompt, Confirm
 from rich.panel import Panel
 from rich.table import Table
-from rich import print as rprint
+
 
 console = Console()
 
@@ -294,13 +294,13 @@ def flow_cloud() -> dict:
     provider_key = provider_keys[int(choice) - 1]
     provider = CLOUD_PROVIDERS[provider_key]
 
-    console.print(f"\n[bold]Step 3 — Get your API key[/bold]")
+    console.print("\n[bold]Step 3 — Get your API key[/bold]")
     console.print(f"Get your key here: [link={provider['key_url']}]{provider['key_url']}[/link]\n")
 
     api_key = Prompt.ask("Paste your API key", password=True)
 
     # Choose model
-    console.print(f"\n[bold]Step 4 — Choose a model[/bold]")
+    console.print("\n[bold]Step 4 — Choose a model[/bold]")
     for i, m in enumerate(provider["models"], 1):
         console.print(f"  {i}. {m}")
 

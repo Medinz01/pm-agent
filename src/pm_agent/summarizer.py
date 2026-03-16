@@ -6,9 +6,7 @@ without opening PROJECT.md.
 import os
 import re
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
-from rich.columns import Columns
 from rich import box
 
 console = Console()
@@ -59,7 +57,6 @@ def print_summary(doc_path: str, repo_path: str = "."):
     # Extract fields
     purpose = _extract_section(content, "Purpose") or "Not set"
     stack = _extract_section(content, "Stack") or "Not set"
-    architecture = _extract_section(content, "Architecture") or "Not set"
     decisions = _count_decisions(content)
     changelog_entries = _count_changelog_entries(content)
     last_change = _last_changelog_date(content)
@@ -85,10 +82,10 @@ def print_summary(doc_path: str, repo_path: str = "."):
     console.rule(f"[bold cyan]{project_name}[/bold cyan]")
 
     # Purpose + Stack
-    console.print(f"\n[bold]Purpose[/bold]")
+    console.print("\n[bold]Purpose[/bold]")
     console.print(f"  {purpose[:120]}")
 
-    console.print(f"\n[bold]Stack[/bold]")
+    console.print("\n[bold]Stack[/bold]")
     console.print(f"  {stack}")
 
     # Stats table
@@ -101,12 +98,12 @@ def print_summary(doc_path: str, repo_path: str = "."):
     stats.add_row("Changelog entries", str(changelog_entries))
     stats.add_row("Last change", last_change)
 
-    console.print(f"\n[bold]Stats[/bold]")
+    console.print("\n[bold]Stats[/bold]")
     console.print(stats)
 
     # Recent commits
     if git_info:
-        console.print(f"[bold]Recent commits[/bold]")
+        console.print("[bold]Recent commits[/bold]")
         console.print(git_info)
 
     console.print()

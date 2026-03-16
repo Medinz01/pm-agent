@@ -4,8 +4,9 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)
 ![Ollama](https://img.shields.io/badge/Ollama-local-green?logo=ollama)
+![PyPI](https://img.shields.io/pypi/v/pmagent-cli?color=orange&label=pmagent-cli)
+![CI](https://github.com/Medinz01/pm-agent/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
-![Status](https://img.shields.io/badge/status-v0.1.0-orange)
 
 ---
 
@@ -13,68 +14,30 @@
 
 pm-agent runs alongside your development workflow. Point it at any repo — new or existing — and it:
 
-- **Reads** the entire codebase and maps every file, function, and class
+- **Reads** the entire codebase and maps every file, function, and class via AST
 - **Asks** clarifying questions to capture *why* decisions were made
-- **Writes** a living `PROJECT.md` — purpose, architecture, code map, decisions, changelog
+- **Writes** a living `.pm/PROJECT.md` — purpose, architecture, code map, decisions, git history, changelog
 - **Watches** for file saves and auto-updates the doc in the background
 - **Builds** context-rich prompts you can paste into any LLM to continue development
+- **Auto-updates** `.gitignore` so API keys and internal state never get committed
 
 No code leaves your machine unless you explicitly configure a cloud provider.
 
 ---
 
-## Demo
-
-```
-$ python main.py init
-
-── pm-agent init ──────────────────────────────
-Indexing repository...        Found 20 files.
-Mapping functions and classes... Mapped 16 files, 54 symbols.
-Analyzing with LLM...
-Running clarifying questions...
-
-1. Why choose Python for this project?
-2. What constraints did you face selecting models?
-...
-
-Done — .pm/PROJECT.md created
-```
-
-```
-$ python main.py watch
-
-Watching . for changes...
-Detected 1 change(s), updating doc...
-  + Added JWT token validation in auth.py
-  + Updated config.yaml with jwt_secret field
-```
-
-```
-$ python main.py prompt "add rate limiting to the API"
-
-# Project Context — pm-agent
-## About This Project ...
-## Your Task
-add rate limiting to the API
-## Instructions ...
-```
-
----
-
-## Installation
+## Install
 
 ```bash
-git clone https://github.com/Medinz01/pm-agent.git
-cd pm-agent
-pip install -r requirements.txt
+pip install pmagent-cli
 ```
 
-Install and start Ollama, then pull the recommended model:
+Then run the setup wizard:
 
 ```bash
-ollama pull qwen2.5-coder:3b
+pmagent setup
 ```
+
+The wizard detects your hardware, checks if Ollama is installed, recommends the best local model for your machine, and saves config to `~/.pm-agent/config.yaml`.
 
 ---
 
@@ -83,42 +46,103 @@ ollama pull qwen2.5-coder:3b
 ### Initialize a project
 
 ```bash
-# Current directory
-python main.py init
-
-# Existing project elsewhere
-python main.py init /path/to/your/project
+pmagent init                          # current directory
+pmagent init /path/to/your/project   # existing project
 ```
 
 ### Watch for changes
 
 ```bash
-python main.py watch
+pmagent watch
 ```
 
-Run this in a second terminal while you develop. Every file save triggers an automatic changelog update.
+Run in a second terminal while you develop. Every file save triggers an automatic changelog + code map update.
 
 ### Generate a task prompt
 
 ```bash
-python main.py prompt "add user authentication"
-python main.py prompt "find the bug in the payment flow"
-python main.py prompt "refactor the database layer"
+pmagent prompt "add user authentication"
+pmagent prompt "find the bug in the payment flow"
+pmagent prompt "refactor the database layer"
+pmagent prompt "add rate limiting" --copy    # copies to clipboard
 ```
 
-Copy the output and paste into any LLM — Claude, ChatGPT, Gemini, whatever you have access to.
+Paste the output into any LLM — Claude, ChatGPT, Gemini, whatever you have access to.
+
+### Quick project summary
+
+```bash
+pmagent summary
+```
+
+Prints purpose, stack, stats (files mapped, symbols, decisions, changelog entries), and recent git commits.
 
 ### Add a decision manually
 
 ```bash
-python main.py decision "chose SQLite over PostgreSQL — single user, no concurrency needed"
+pmagent decision "chose SQLite over PostgreSQL — single user, no concurrency needed"
+```
+
+---
+
+## Demo
+
+```
+$ pmagent init
+
+── pm-agent init ────────────────────────────────────
+Indexing repository...           Found 26 files.
+Mapping functions and classes... Mapped 19 files, 80 symbols.
+Found 3 recent git commits.
+Analyzing with LLM...
+Running clarifying questions...
+
+1. Why choose Python for this project?
+2. What constraints did you face selecting models?
+...
+
+Updating .gitignore...   .gitignore updated.
+Done — .pm/PROJECT.md created
+```
+
+```
+$ pmagent watch
+
+Watching . for changes...
+Detected 1 change(s), updating doc...
+  ↻ Code Map updated
+  + Added JWT token validation in auth.py
+  + Updated config.yaml with jwt_secret field
+```
+
+```
+$ pmagent summary
+
+─────────────────── pm-agent ───────────────────
+
+Purpose
+  A local-first AI project management agent...
+
+Stack
+  Python, Ollama, OpenAI, Anthropic
+
+Stats
+  Code files mapped     19
+  Symbols (fn/class)    80
+  Design decisions       7
+  Changelog entries     12
+  Last change     2026-03-16
+
+Recent commits
+  c6ebf98 fix: remove unused cfg variable
+  ba55feb feat: pm-agent v0.1.0
 ```
 
 ---
 
 ## Configuration
 
-Edit `config.yaml` to switch providers:
+Config lives at `~/.pm-agent/config.yaml` after running `pmagent setup`. Edit to switch providers:
 
 ```yaml
 # Local (default — free, private)
@@ -168,16 +192,36 @@ api_key: your_anthropic_key
 - `generate_token() — Creates a signed JWT for a given user ID`
 - `verify_token() — Validates and decodes an incoming JWT`
 
+## Git History
+- `a1b2c3d` 2026-03-16 — feat: add JWT auth  John Doe
+
 ## Design Decisions
 | Question | Decision / Answer | Date |
 |---|---|---|
-| Why SQLite? | Single user, no concurrency | 2026-03-15 |
+| Why SQLite? | Single user, no concurrency needed | 2026-03-16 |
 
 ## Changelog
-### 2026-03-15
+### 2026-03-16
 - Added JWT token generation in auth.py
 - Updated config to include jwt_secret
 ```
+
+> `.pm/PROJECT.md` is committed to git — it's the value. Internal state files are auto-added to `.gitignore`.
+
+---
+
+## CI / Tests
+
+Every push to `main` runs automated tests via GitHub Actions — no Ollama or API key required.
+
+| Test | What it validates |
+|---|---|
+| `pyflakes` lint | No unused imports or variables across all modules |
+| Config loader | `load_config()` returns valid defaults |
+| Indexer | Walks repo, returns files, finds `main.py` in code map |
+| AST code map | Detects `cli()` function correctly in `main.py` |
+| Doc writer | Creates `PROJECT.md` with all required sections |
+| Prompt builder | Builds prompt containing task text and project context |
 
 ---
 
@@ -185,10 +229,10 @@ api_key: your_anthropic_key
 
 Tested on Intel i5 10th gen, 16GB RAM, GTX 1650 4GB VRAM.
 
-| Model | VRAM | Speed |
+| Model | VRAM needed | Speed on 4GB card |
 |---|---|---|
-| `qwen2.5-coder:3b` | ~2GB | Fast |
-| `qwen2.5-coder:7b` | ~4.5GB | Slow (spills to RAM) |
+| `qwen2.5-coder:3b` | ~2GB | ✅ Fast — fits in VRAM |
+| `qwen2.5-coder:7b` | ~4.5GB | ⚠️ Slow — spills to RAM |
 | Any cloud model | 0 | Depends on API |
 
 ---
@@ -196,7 +240,7 @@ Tested on Intel i5 10th gen, 16GB RAM, GTX 1650 4GB VRAM.
 ## Project structure
 
 ```
-pm-agent/
+src/pm_agent/
 ├── main.py              # CLI entry point
 ├── config.py            # Load config.yaml
 ├── indexer.py           # Repo walker + AST code map
@@ -204,15 +248,18 @@ pm-agent/
 ├── questioner.py        # Interactive Q&A
 ├── doc_writer.py        # Read/write PROJECT.md
 ├── diff_engine.py       # File hash diffing
-├── watcher.py           # Watchdog file monitor
+├── watcher.py           # Watchdog file monitor + code map refresh
 ├── prompt_builder.py    # Task prompt generator
-├── llm/
-│   ├── base.py          # Abstract LLM interface
-│   ├── factory.py       # Provider selector
-│   ├── ollama_client.py
-│   ├── openai_client.py
-│   └── anthropic_client.py
-└── config.yaml
+├── wizard.py            # First-run setup wizard
+├── git_reader.py        # Git commit history awareness
+├── summarizer.py        # Terminal project status summary
+├── gitignore_manager.py # Auto-add entries to .gitignore
+└── llm/
+    ├── base.py          # Abstract LLM interface
+    ├── factory.py       # Provider selector
+    ├── ollama_client.py
+    ├── openai_client.py
+    └── anthropic_client.py
 ```
 
 ---
@@ -222,12 +269,15 @@ pm-agent/
 - [x] Repo indexing and AST code map
 - [x] LLM analysis and Q&A
 - [x] Living PROJECT.md doc
-- [x] File watcher with auto-changelog
+- [x] File watcher with auto-changelog + code map refresh
 - [x] Task prompt builder
 - [x] Multi-provider support (Ollama, OpenAI, Groq, Anthropic)
-- [ ] Git commit awareness
-- [ ] `pm summary` — quick status in terminal
-- [ ] PyPI package
+- [x] First-run setup wizard with hardware detection
+- [x] Git commit awareness
+- [x] `pmagent summary` — quick status in terminal
+- [x] PyPI package (`pip install pmagent-cli`)
+- [x] Auto-gitignore management
+- [ ] Promote engine — Reddit, HN, Dev.to, Slack
 - [ ] VS Code extension
 
 ---
