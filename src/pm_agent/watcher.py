@@ -3,10 +3,14 @@ import os
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from rich.console import Console
-from diff_engine import compute_diff
-from analyzer import CHUNK_SIZE
+from pm_agent.diff_engine import compute_diff
+from pm_agent.analyzer import CHUNK_SIZE
+from pm_agent.indexer import map_repo
+from pathlib import Path
 
 console = Console()
+
+CODE_EXTENSIONS = {".py", ".js", ".ts", ".jsx", ".tsx"}
 
 
 class RepoEventHandler(FileSystemEventHandler):
@@ -18,17 +22,18 @@ class RepoEventHandler(FileSystemEventHandler):
         self.debounce = cfg.get("watch_debounce_seconds", 2)
         self._last_trigger = 0
         self._pending = False
+        self._changed_paths = set()
 
     def on_any_event(self, event):
         if event.is_directory:
             return
-        # Ignore .pm directory and ignored patterns
         rel = os.path.relpath(event.src_path, self.root)
         for pattern in self.cfg.get("ignore_patterns", []):
             if pattern.strip("*") in rel:
                 return
         self._pending = True
         self._last_trigger = time.time()
+        self._changed_paths.add(rel)
 
     def flush_if_ready(self):
         if not self._pending:
@@ -36,16 +41,31 @@ class RepoEventHandler(FileSystemEventHandler):
         if time.time() - self._last_trigger < self.debounce:
             return
         self._pending = False
-        self._process_changes()
+        changed = set(self._changed_paths)
+        self._changed_paths.clear()
+        self._process_changes(changed)
 
-    def _process_changes(self):
+    def _process_changes(self, changed_paths: set):
         changes = compute_diff(self.root, self.writer, self.cfg.get("ignore_patterns", []))
         if not changes:
             return
 
         console.print(f"[cyan]Detected {len(changes)} change(s), updating doc...")
 
-        # Build summary prompt
+        # ── Update Code Map if any code files changed ──
+        has_code_changes = any(
+            Path(p).suffix.lower() in CODE_EXTENSIONS
+            for p in changed_paths
+        )
+
+        if has_code_changes:
+            from pm_agent.indexer import index_repo
+            _, contents = index_repo(self.root, self.cfg.get("ignore_patterns", []))
+            new_code_map = map_repo(contents)
+            self.writer.update_code_map(new_code_map)
+            console.print("[dim]  ↻ Code Map updated[/dim]")
+
+        # ── LLM changelog summary ──
         change_summary = "\n".join(
             f"- [{c['status'].upper()}] {c['path']}" for c in changes
         )
@@ -80,7 +100,6 @@ Return only a JSON array of strings:
                 for e in entries:
                     console.print(f"[green]  + {e}")
         except Exception:
-            # Fallback: just log the changed files
             entries = [f"{c['status'].capitalize()}: {c['path']}" for c in changes]
             self.writer.append_changelog(entries)
 

@@ -1,5 +1,5 @@
 from openai import OpenAI
-from llm.base import LLMClient
+from pm_agent.llm.base import LLMClient
 
 
 class OpenAIClient(LLMClient):

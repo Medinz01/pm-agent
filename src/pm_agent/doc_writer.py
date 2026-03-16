@@ -19,7 +19,7 @@ class DocWriter:
 
     # ── Initial doc creation ───────────────────────────────────────────────
 
-    def write_initial(self, analysis: dict, decisions: list[dict], code_map: dict = None):
+    def write_initial(self, analysis: dict, decisions: list[dict], code_map: dict = None, git_context: str = ""):
         today = datetime.now().strftime("%Y-%m-%d")
         goals = "\n".join(f"- {g}" for g in analysis.get("goals", []))
         stack = ", ".join(analysis.get("stack", ["Unknown"]))
@@ -58,6 +58,9 @@ class DocWriter:
 | Question | Decision / Answer | Date |
 |---|---|---|
 {decision_rows}
+
+## Git History
+{git_context or '_No git history found or repo not initialized._'}
 
 ## Phases
 - Phase 1: Initial setup and core functionality

@@ -1,5 +1,5 @@
 import anthropic
-from llm.base import LLMClient
+from pm_agent.llm.base import LLMClient
 
 
 class AnthropicClient(LLMClient):

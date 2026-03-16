@@ -1,0 +1,29 @@
+# pm-agent configuration
+# Switch provider anytime — agent logic stays the same.
+
+provider: local              # local | openai | anthropic | groq
+model: qwen2.5-coder:3b      # model name for chosen provider
+ollama_host: http://localhost:11434
+
+# Cloud provider settings (leave null if using local)
+api_key: null
+
+# Watcher settings
+watch_debounce_seconds: 2    # wait N seconds after last save before triggering
+ignore_patterns:             # additional patterns to ignore during indexing
+  - "*.pyc"
+  - "__pycache__"
+  - ".git"
+  - "node_modules"
+  - ".pm"
+  - "*.log"
+  - "dist"
+  - "build"
+  - ".venv"
+  - "venv"
+
+# Prompt output
+prompt_output: stdout        # stdout | clipboard | file
+
+# v0.1.0 - initial release
+version: 0.1.0

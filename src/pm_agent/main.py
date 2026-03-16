@@ -1,15 +1,27 @@
+import os
 import click
+from pathlib import Path
 from rich.console import Console
-from config import load_config
-from indexer import index_repo, map_repo
-from analyzer import analyze_repo
-from questioner import run_questioner
-from doc_writer import DocWriter
-from watcher import start_watcher
-from prompt_builder import build_prompt
-from llm.factory import get_client
+from pm_agent.config import load_config
+from pm_agent.indexer import index_repo, map_repo
+from pm_agent.analyzer import analyze_repo
+from pm_agent.questioner import run_questioner
+from pm_agent.doc_writer import DocWriter
+from pm_agent.watcher import start_watcher
+from pm_agent.prompt_builder import build_prompt
+from pm_agent.llm.factory import get_client
 
 console = Console()
+
+GLOBAL_CONFIG = Path.home() / ".pm-agent" / "config.yaml"
+
+
+def resolve_config() -> dict:
+    """Load global config if it exists, else fall back to local config.yaml."""
+    if GLOBAL_CONFIG.exists():
+        return load_config(str(GLOBAL_CONFIG))
+    return load_config("config.yaml")
+
 
 @click.group()
 def cli():
@@ -18,10 +30,17 @@ def cli():
 
 
 @cli.command()
+def setup():
+    """First-time setup wizard — configure your AI provider."""
+    from pm_agent.wizard import run_wizard
+    run_wizard()
+
+
+@cli.command()
 @click.argument("path", default=".", type=click.Path(exists=True))
 def init(path):
     """Scan a repo, ask questions, and generate PROJECT.md."""
-    cfg = load_config()
+    cfg = resolve_config()
     client = get_client(cfg)
     writer = DocWriter(path)
 
@@ -32,23 +51,41 @@ def init(path):
     file_tree, contents = index_repo(path, cfg["ignore_patterns"])
     console.print(f"[green]Found {len(contents)} files.")
 
-    # 2. Code map (AST parse — no LLM needed)
+    # 2. Code map
     console.print("[cyan]Mapping functions and classes...")
     code_map = map_repo(contents)
     mapped = sum(len(v) for v in code_map.values())
     console.print(f"[green]Mapped {len(code_map)} code files, {mapped} symbols.")
 
-    # 3. Analyze
+    # 3. Git history
+    git_context = ""
+    try:
+        from pm_agent.git_reader import get_recent_commits, format_commits_for_doc, is_git_repo
+        if is_git_repo(path):
+            commits = get_recent_commits(path, limit=10)
+            if commits:
+                console.print(f"[green]Found {len(commits)} recent git commits.")
+                git_context = format_commits_for_doc(commits)
+    except Exception:
+        pass
+
+    # 4. Analyze
     console.print("[cyan]Analyzing with LLM...")
     analysis = analyze_repo(client, file_tree, contents)
 
-    # 4. Q&A
+    # 5. Q&A
     console.print("[cyan]Running clarifying questions...")
     decisions = run_questioner(client, analysis)
 
-    # 5. Write doc
+    # 6. Write doc
     console.print("[cyan]Writing PROJECT.md...")
-    writer.write_initial(analysis, decisions, code_map=code_map)
+    writer.write_initial(analysis, decisions, code_map=code_map, git_context=git_context)
+
+    # 7. Gitignore
+    console.print("[cyan]Updating .gitignore...")
+    from pm_agent.gitignore_manager import setup_core
+    setup_core(path, quiet=True)
+    console.print("[green]  .gitignore updated.")
 
     console.rule("[bold green]Done — .pm/PROJECT.md created")
 
@@ -57,7 +94,7 @@ def init(path):
 @click.argument("path", default=".", type=click.Path(exists=True))
 def watch(path):
     """Watch for file changes and auto-update PROJECT.md."""
-    cfg = load_config()
+    cfg = resolve_config()
     client = get_client(cfg)
     writer = DocWriter(path)
 
@@ -74,7 +111,6 @@ def watch(path):
 def prompt(task, copy):
     """Generate a context-rich LLM prompt for a task."""
     writer = DocWriter(".")
-
     output = build_prompt(writer, task)
 
     if copy:
@@ -96,6 +132,15 @@ def decision(text):
     writer = DocWriter(".")
     writer.append_decision(text)
     console.print(f"[green]Decision added: {text}")
+
+
+@cli.command()
+@click.argument("path", default=".", type=click.Path(exists=True))
+def summary(path):
+    """Print a quick project status overview in the terminal."""
+    from pm_agent.summarizer import print_summary
+    doc_path = os.path.join(path, ".pm", "PROJECT.md")
+    print_summary(doc_path, repo_path=path)
 
 
 if __name__ == "__main__":

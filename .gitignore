@@ -10,3 +10,8 @@ config.local.yaml
 .pm/snapshot.json
 .pm/prompts/
 *.log
+
+# pmagent
+.pm/snapshot.json
+.pm/prompts/
+# end pmagent

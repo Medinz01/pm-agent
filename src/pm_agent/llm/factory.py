@@ -1,6 +1,6 @@
-from llm.ollama_client import OllamaClient
-from llm.openai_client import OpenAIClient
-from llm.anthropic_client import AnthropicClient
+from pm_agent.llm.ollama_client import OllamaClient
+from pm_agent.llm.openai_client import OpenAIClient
+from pm_agent.llm.anthropic_client import AnthropicClient
 
 
 def get_client(cfg: dict):

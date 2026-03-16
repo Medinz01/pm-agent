@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "pm-agent"
+version = "0.2.0"
+description = "Local-first AI project management agent — reads your repo, documents it, watches for changes, builds LLM prompts."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Medinz01" }]
+keywords = [
+    "ai", "llm", "project-management", "ollama",
+    "developer-tools", "code-analysis", "local-ai"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "ollama>=0.2.0",
+    "openai>=1.30.0",
+    "anthropic>=0.28.0",
+    "watchdog>=4.0.0",
+    "gitpython>=3.1.40",
+    "pyyaml>=6.0.1",
+    "pyperclip>=1.8.2",
+    "click>=8.1.7",
+    "rich>=13.7.0",
+    "pathspec>=0.12.1",
+    "psutil>=5.9.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Medinz01/pm-agent"
+Repository = "https://github.com/Medinz01/pm-agent"
+Issues = "https://github.com/Medinz01/pm-agent/issues"
+
+[project.scripts]
+pm-agent = "pm_agent.main:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"pm_agent" = ["config.default.yaml"]

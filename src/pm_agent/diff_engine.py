@@ -1,5 +1,5 @@
 import os
-from doc_writer import DocWriter
+from pm_agent.doc_writer import DocWriter
 
 
 def compute_diff(root: str, writer: DocWriter, ignore_patterns: list[str]) -> list[dict]:
